@@ -41,21 +41,18 @@ struct Record
 class Wrestler
 {
 public:
-	Wrestler() : id(0), abilityScore(0), wtClass(0), weight(0) {}
+	Wrestler() = default;
 	Wrestler(int weightClass, int wt, int ID, int abilitySc) :
 		id(ID),
 		abilityScore(abilitySc),
 		wtClass(weightClass),
 		weight(wt)
-	{
-		record.wins = 0;
-		record.losses = 0;
-	}
-	int id;
-	int abilityScore;
+	{}
+	int id = 0;
+	int abilityScore = 0;
 	Record record;
-	int wtClass;
-	int weight;
+	int wtClass = 0;
+	int weight = 0;
 };
 
 class School
@@ -249,6 +246,7 @@ public:
 class Tournament
 {
 public:
+	static const int EXPECTED_MATCH_COUNT = 14;
 	Tournament(Conference& conference, int weightClass): conf(&conference), wtClass(weightClass)
 	{
 		for (int i = 0; i < 8; ++i)
@@ -290,9 +288,9 @@ public:
 	}
 	void printWinner()
 	{
-		if (matches.size() < 14)
+		if (static_cast<int>(matches.size()) < EXPECTED_MATCH_COUNT)
 			return;
-		cout << "And the winner in the weight class " << wtClass << " is number " << matches[13].winner.id << endl;
+		cout << "And the winner in the weight class " << wtClass << " is number " << matches[EXPECTED_MATCH_COUNT - 1].winner.id << endl;
 	}
 	vector<Wrestler> participants;
 	vector<Match> matches;
