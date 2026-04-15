@@ -10,10 +10,11 @@
 #include <iomanip>
 #include <random>
 #include <set>
-#include <time.h>
 #include <vector>
 
 using namespace std;
+
+static mt19937 rng(random_device{}());
 
 int weightClasses[13] = {
       94,
@@ -34,27 +35,24 @@ int weightClasses[13] = {
 struct Record
 {
 	int wins = 0;
-	int loses = 0;
+	int losses = 0;
 };
 
 class Wrestler
 {
 public:
-	Wrestler() {}
+	Wrestler() = default;
 	Wrestler(int weightClass, int wt, int ID, int abilitySc) :
-		wtClass(weightClass),
-		weight(wt),
 		id(ID),
-		abilityScore(abilitySc)
-	{
-		record.wins = 0;
-		record.loses = 0;
-	}
-	int id;
-	int abilityScore;
+		abilityScore(abilitySc),
+		wtClass(weightClass),
+		weight(wt)
+	{}
+	int id = 0;
+	int abilityScore = 0;
 	Record record;
-	int wtClass;
-	int weight;
+	int wtClass = 0;
+	int weight = 0;
 };
 
 class School
@@ -64,20 +62,16 @@ public:
 	{
 		wrestlers.resize(numberOfWrestlers);
 		set<int> wtClasses;
-		srand(time(0));
-
-		std::random_device rd;
-
-		std::mt19937 e2(rd());
 
 		normal_distribution<double> distributionAbility(100, 15);
+		uniform_int_distribution<int> wtDist(94, 285);
 		for (int i = 0; i < numberOfWrestlers; ++i)
 		{
 			int cl = 0;
 			int wt = 0;
 			while (wtClasses.find(cl) != wtClasses.end() || cl < 1)
 			{
-				wt = rand() % 192 + 94;
+				wt = wtDist(rng);
 				for (int j = 1; j < 13; ++j)
 				{
 					if (wt > weightClasses[j - 1] && wt <= weightClasses[j])
@@ -87,7 +81,7 @@ public:
 					}
 				}
 			}
-			int abilityScore = max(static_cast<int>(round<int>(distributionAbility(e2))), 0);
+			int abilityScore = max(static_cast<int>(round<int>(distributionAbility(rng))), 0);
 			wrestlers[i] = Wrestler(cl, wt, name + i + 1, abilityScore);
 			wtClasses.insert(cl);
 		}
@@ -108,7 +102,7 @@ public:
 		for (int i = 0; i < numberOfWrestlers; ++i)
 		{
 			wins += wrestlers[i].record.wins;
-			loses += wrestlers[i].record.loses;
+			loses += wrestlers[i].record.losses;
 		}
 
 		return float(wins) / (wins + loses);
@@ -122,17 +116,12 @@ public:
 class Conference
 {
 public:
-	Conference()
+	Conference() : bestScore(0.0f)
 	{
-
-		std::random_device rd;
-
-		std::mt19937 e2(rd());
-
 		//std::normal_distribution<double> distribution(10, 1);
 		for (int schoolName = 100; schoolName < 900; schoolName += 100)
 		{
-			int numberOfWrestlers = 12;//min(static_cast<int>(round<int>(distribution(e2))), 12);
+			int numberOfWrestlers = 12;//min(static_cast<int>(round<int>(distribution(rng))), 12);
 			schools.push_back(School(schoolName, numberOfWrestlers));
 		}
 
@@ -172,26 +161,22 @@ public:
 
 		float sigma = max(abs(w1.abilityScore - w2.abilityScore) / 3.f, 15.f);
 
-		std::random_device rd;
-
-		std::mt19937 e2(rd());
-
 		std::normal_distribution<double> distribution1(w1.abilityScore, sigma);
 		std::normal_distribution<double> distribution2(w2.abilityScore, sigma);
-		float score1 = distribution1(e2);
-		float score2 = distribution2(e2);
+		float score1 = distribution1(rng);
+		float score2 = distribution2(rng);
 
 		if (score1 > score2)
 		{
 			w1.record.wins++;
-			w2.record.loses++;
+			w2.record.losses++;
 			advantageMatrix[w1.wtClass][wrestler1 / 100 - 1][wrestler2 / 100 - 1]++;
 			advantageMatrix[w1.wtClass][wrestler2 / 100 - 1][wrestler1 / 100 - 1]--;
 			return 1;
 		}
 		else
 		{
-			w1.record.loses++;
+			w1.record.losses++;
 			w2.record.wins++;
 			advantageMatrix[w1.wtClass][wrestler1 / 100 - 1][wrestler2 / 100 - 1]--;
 			advantageMatrix[w1.wtClass][wrestler2 / 100 - 1][wrestler1 / 100 - 1]++;
@@ -213,7 +198,7 @@ public:
 };
 
 struct Comp {
-	Comp(Conference& conf) { conference = conf; }
+	Comp(Conference& conf) { conference = &conf; }
 	bool operator()(Wrestler w1, Wrestler w2)
 	{
 		if (w1.record.wins < w2.record.wins)
@@ -221,13 +206,13 @@ struct Comp {
 		if (w2.record.wins < w1.record.wins)
 			return false;
 
-		if (conference.advantageMatrix[w1.wtClass][w1.id / 100][w2.id / 100] < 0)
+		if (conference->advantageMatrix[w1.wtClass][w1.id / 100 - 1][w2.id / 100 - 1] < 0)
 			return true;
 		else
 			return false;
 
 	}
-	Conference conference;
+	Conference* conference;
 };
 
 class Match
@@ -237,34 +222,31 @@ public:
 	{
 		float sigma = max(abs(w1.abilityScore - w2.abilityScore) / 3.f, 15.f);
 
-		std::random_device rd;
-
-		std::mt19937 e2(rd());
-
 		std::normal_distribution<double> distribution1(w1.abilityScore, sigma);
 		std::normal_distribution<double> distribution2(w2.abilityScore, sigma);
-		float score1 = distribution1(e2);
-		float score2 = distribution2(e2);
+		float score1 = distribution1(rng);
+		float score2 = distribution2(rng);
 		if (score1 > score2)
 		{
 			winner = w1;
-			looser = w2;
+			loser = w2;
 		}
 		else
 		{
 			winner = w2;
-			looser = w1;
+			loser = w1;
 		}
 	}
 	Wrestler w1;
 	Wrestler w2;
 	Wrestler winner;
-	Wrestler looser;
+	Wrestler loser;
 };
 
 class Tournament
 {
 public:
+	static const int EXPECTED_MATCH_COUNT = 14;
 	Tournament(Conference& conference, int weightClass): conf(&conference), wtClass(weightClass)
 	{
 		for (int i = 0; i < 8; ++i)
@@ -284,24 +266,31 @@ public:
 
 	void simulate()
 	{
+		if (participants.size() < 8)
+		{
+			cout << "Not enough participants in weight class " << wtClass << " to run tournament." << endl;
+			return;
+		}
 		matches.push_back(Match(participants[0], participants[7]));
 		matches.push_back(Match(participants[4], participants[3]));
 		matches.push_back(Match(participants[2], participants[5]));
 		matches.push_back(Match(participants[1], participants[6]));
 		matches.push_back(Match(matches[0].winner, matches[1].winner));
 		matches.push_back(Match(matches[2].winner, matches[3].winner));
-		matches.push_back(Match(matches[0].looser, matches[1].looser));
-		matches.push_back(Match(matches[2].looser, matches[3].looser));
-		matches.push_back(Match(matches[4].looser, matches[7].winner));
-		matches.push_back(Match(matches[5].looser, matches[6].winner));
-		matches.push_back(Match(matches[6].looser, matches[7].looser));
-		matches.push_back(Match(matches[8].looser, matches[9].looser));
+		matches.push_back(Match(matches[0].loser, matches[1].loser));
+		matches.push_back(Match(matches[2].loser, matches[3].loser));
+		matches.push_back(Match(matches[4].loser, matches[7].winner));
+		matches.push_back(Match(matches[5].loser, matches[6].winner));
+		matches.push_back(Match(matches[6].loser, matches[7].loser));
+		matches.push_back(Match(matches[8].loser, matches[9].loser));
 		matches.push_back(Match(matches[9].winner, matches[10].winner));
 		matches.push_back(Match(matches[5].winner, matches[6].winner));
 	}
 	void printWinner()
 	{
-			cout << "And the winner in the weight class " << wtClass << " is number " << matches[13].winner.id << endl;
+		if (static_cast<int>(matches.size()) < EXPECTED_MATCH_COUNT)
+			return;
+		cout << "And the winner in the weight class " << wtClass << " is number " << matches[EXPECTED_MATCH_COUNT - 1].winner.id << endl;
 	}
 	vector<Wrestler> participants;
 	vector<Match> matches;
